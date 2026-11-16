@@ -7,12 +7,12 @@ from datetime import datetime, timezone, timedelta
 SUBSCRIPTIONS = [
     {
         "name": "Mifa White-List (Diman331)",
-        "filename": "sub_diman331.txt",
+        "filename": "Mifa White-List.txt",
         "url": "https://gist.githubusercontent.com/Diman331/8c868070c0b5a5ec0c7d94507717b67b/raw/subscription.txt"
     },
     {
         "name": "Mobile Whitelist 1 (mmaksim9191)",
-        "filename": "sub_mmaksim.txt",
+        "filename": "Whitelist 1",
         "url": "https://raw.githubusercontent.com/mmaksim9191/my-vpn-configs/refs/heads/main/configs/mobile-whitelist-1.txt"
     },
     {
