@@ -1,11 +1,7 @@
 import os
-import sys
 import base64
-import smtplib
-import ssl
 import urllib.request
 from datetime import datetime, timezone, timedelta
-from email.message import EmailMessage
 
 SUBSCRIPTIONS = [
     {
@@ -33,82 +29,33 @@ def decode_if_base64(raw_text: str) -> str:
         pass
     return clean
 
-def fetch_and_format(sub: dict, now_msk: str) -> str:
-    req = urllib.request.Request(sub["url"], headers={"User-Agent": "HappVPN-Sync/1.0"})
-    with urllib.request.urlopen(req, timeout=20) as resp:
-        raw_data = resp.read().decode("utf-8", errors="replace")
-
-    servers = decode_if_base64(raw_data)
-    if not servers.strip():
-        raise ValueError(f"Получен пустой список серверов для {sub['name']}")
-
-    lines = [line for line in servers.splitlines() if not line.startswith(("#profile-title:", "#profile-update-interval:", "#announce:"))]
-    clean_servers = "\n".join(lines).strip()
-
-    header = (
-        f"#profile-title: {sub['name']}\n"
-        f"#profile-update-interval: 3\n"
-        f"#announce: Синхронизировано: {now_msk} (МСК)\n\n"
-    )
-    return header + clean_servers + "\n"
-
-def send_email(sub: dict, content: str, now_msk: str):
-    gmail_user = os.environ["GMAIL_USER"]
-    gmail_pass = os.environ["GMAIL_PASS"]
-
-    msg = EmailMessage()
-    msg["Subject"] = f"VPN Подписка: {sub['name']} [{now_msk}]"
-    msg["From"] = gmail_user
-    msg["To"] = gmail_user
-    msg.set_content(
-        f"Актуальная подписка: {sub['name']}\n"
-        f"Время синхронизации: {now_msk} (МСК)\n\n"
-        f"Скачайте прикрепленный файл {sub['filename']} и импортируйте его в приложение Happ VPN."
-    )
-
-    msg.add_attachment(
-        content.encode("utf-8"),
-        maintype="text",
-        subtype="plain",
-        filename=sub["filename"]
-    )
-
-    # Используем безопасный контекст SSL для стабильного подключения на порту 465
-    context = ssl.create_default_context()
-    
-    # Делаем до 3 попыток отправки при разрыве соединения
-    max_retries = 3
-    for attempt in range(1, max_retries + 1):
-        try:
-            print(f"Попытка подключения к SMTP Gmail (попытка {attempt}/{max_retries})...")
-            with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context, timeout=30) as smtp:
-                smtp.login(gmail_user, gmail_pass)
-                smtp.send_message(msg)
-            print("Письмо успешно отправлено!")
-            return
-        except Exception as e:
-            print(f"Ошибка при отправке (попытка {attempt}): {e}")
-            if attempt == max_retries:
-                raise
-
 def main():
     msk_tz = timezone(timedelta(hours=3))
     now_msk = datetime.now(msk_tz).strftime("%d.%m.%Y %H:%M")
     
-    mode = sys.argv[1] if len(sys.argv) > 1 else "all"
-
-    if mode == "queue":
-        current_hour = datetime.now(timezone.utc).hour
-        slot = current_hour // 3
-        target_subs = [SUBSCRIPTIONS[slot % len(SUBSCRIPTIONS)]]
-    else:
-        target_subs = SUBSCRIPTIONS
-
-    for sub in target_subs:
+    for sub in SUBSCRIPTIONS:
         print(f"Скачиваю {sub['name']}...")
-        content = fetch_and_format(sub, now_msk)
-        print(f"Отправляю письмо для {sub['name']}...")
-        send_email(sub, content, now_msk)
+        req = urllib.request.Request(sub["url"], headers={"User-Agent": "HappVPN-Sync/1.0"})
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            raw_data = resp.read().decode("utf-8", errors="replace")
+
+        servers = decode_if_base64(raw_data)
+        if not servers.strip():
+            raise ValueError(f"Получен пустой список серверов для {sub['name']}")
+
+        lines = [line for line in servers.splitlines() if not line.startswith(("#profile-title:", "#profile-update-interval:", "#announce:"))]
+        clean_servers = "\n".join(lines).strip()
+
+        header = (
+            f"#profile-title: {sub['name']}\n"
+            f"#profile-update-interval: 3\n"
+            f"#announce: Синхронизировано: {now_msk} (МСК)\n\n"
+        )
+        final_content = header + clean_servers + "\n"
+
+        with open(sub["filename"], "w", encoding="utf-8") as f:
+            f.write(final_content)
+        print(f"Файл {sub['filename']} успешно сохранен.")
 
     with open("status.txt", "w", encoding="utf-8") as f:
         f.write(f"Last sync: {now_msk} MSK\n")
