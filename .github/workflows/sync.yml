@@ -1,9 +1,8 @@
 name: Send VPN Subscriptions to Gmail
 
 on:
-  workflow_dispatch: # Ручной запуск для мгновенной проверки
+  workflow_dispatch:
   schedule:
-    # Запуск каждые 3 часа (в 00:15, 03:15, 06:15, 09:15, 12:15, 15:15, 18:15, 21:15 UTC)
     - cron: '15 */3 * * *'
 
 permissions:
@@ -21,17 +20,21 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Fetch and email subscriptions
-        env:
-          GMAIL_USER: ${{ secrets.GMAIL_USER }}
-          GMAIL_PASS: ${{ secrets.GMAIL_PASS }}
-        run: |
-          # При ручном запуске отправляет сразу все подписки, по расписанию — по одной в слот
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            python send_subs.py all
-          else
-            python send_subs.py queue
-          fi
+      - name: Download and format subscriptions
+        run: python send_subs.py
+
+      - name: Send Email with Subscriptions
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.GMAIL_USER }}
+          password: ${{ secrets.GMAIL_PASS }}
+          subject: "VPN Подписки обновлены"
+          to: ${{ secrets.GMAIL_USER }}
+          from: ${{ secrets.GMAIL_USER }}
+          body: "Актуальные файлы подписок sub_diman331.txt и sub_mmaksim.txt прикреплены к этому письму."
+          attachments: sub_diman331.txt, sub_mmaksim.txt
 
       - name: Keep repository active
         run: |
