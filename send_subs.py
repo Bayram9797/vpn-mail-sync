@@ -6,7 +6,6 @@ import urllib.request
 from datetime import datetime, timezone, timedelta
 from email.message import EmailMessage
 
-# Список подписок для раздельной отправки
 SUBSCRIPTIONS = [
     {
         "name": "Mifa White-List (Diman331)",
@@ -22,7 +21,6 @@ SUBSCRIPTIONS = [
 
 def decode_if_base64(raw_text: str) -> str:
     clean = raw_text.strip()
-    # Если файл уже в открытом виде (содержит протоколы или комментарии), оставляем как есть
     if any(proto in clean for proto in ("vless://", "vmess://", "trojan://", "ss://", "hysteria2://", "#profile-title")):
         return clean
     try:
@@ -43,7 +41,6 @@ def fetch_and_format(sub: dict, now_msk: str) -> str:
     if not servers.strip():
         raise ValueError(f"Получен пустой список серверов для {sub['name']}")
 
-    # Удаляем старые заголовки исходного файла, если они там были, чтобы не дублировать
     lines = [line for line in servers.splitlines() if not line.startswith(("#profile-title:", "#profile-update-interval:", "#announce:"))]
     clean_servers = "\n".join(lines).strip()
 
@@ -75,7 +72,11 @@ def send_email(sub: dict, content: str, now_msk: str):
         filename=sub["filename"]
     )
 
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+    # Подключение через безопасный порт 587 с TLS
+    with smtplib.SMTP("smtp.gmail.com", 587) as smtp:
+        smtp.ehlo()
+        smtp.starttls()
+        smtp.ehlo()
         smtp.login(gmail_user, gmail_pass)
         smtp.send_message(msg)
 
@@ -83,12 +84,10 @@ def main():
     msk_tz = timezone(timedelta(hours=3))
     now_msk = datetime.now(msk_tz).strftime("%d.%m.%Y %H:%M")
     
-    # Если передан индекс (например, при запуске по очереди), берем одну подписку, иначе отправляем все по очереди
     mode = sys.argv[1] if len(sys.argv) > 1 else "all"
 
     if mode == "queue":
         current_hour = datetime.now(timezone.utc).hour
-        # Отправка раз в 3 часа по очереди (в 0, 3, 6, 9, 12, 15, 18, 21 UTC)
         slot = current_hour // 3
         target_subs = [SUBSCRIPTIONS[slot % len(SUBSCRIPTIONS)]]
     else:
@@ -101,7 +100,6 @@ def main():
         send_email(sub, content, now_msk)
         print(f"Успешно отправлено: {sub['name']}")
 
-    # Записываем время последнего запуска для поддержания активности репозитория
     with open("status.txt", "w", encoding="utf-8") as f:
         f.write(f"Last sync: {now_msk} MSK\n")
 
