@@ -2,6 +2,7 @@ import os
 import sys
 import base64
 import smtplib
+import ssl
 import urllib.request
 from datetime import datetime, timezone, timedelta
 from email.message import EmailMessage
@@ -72,13 +73,23 @@ def send_email(sub: dict, content: str, now_msk: str):
         filename=sub["filename"]
     )
 
-    # Подключение через безопасный порт 587 с TLS
-    with smtplib.SMTP("smtp.gmail.com", 587) as smtp:
-        smtp.ehlo()
-        smtp.starttls()
-        smtp.ehlo()
-        smtp.login(gmail_user, gmail_pass)
-        smtp.send_message(msg)
+    # Используем безопасный контекст SSL для стабильного подключения на порту 465
+    context = ssl.create_default_context()
+    
+    # Делаем до 3 попыток отправки при разрыве соединения
+    max_retries = 3
+    for attempt in range(1, max_retries + 1):
+        try:
+            print(f"Попытка подключения к SMTP Gmail (попытка {attempt}/{max_retries})...")
+            with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context, timeout=30) as smtp:
+                smtp.login(gmail_user, gmail_pass)
+                smtp.send_message(msg)
+            print("Письмо успешно отправлено!")
+            return
+        except Exception as e:
+            print(f"Ошибка при отправке (попытка {attempt}): {e}")
+            if attempt == max_retries:
+                raise
 
 def main():
     msk_tz = timezone(timedelta(hours=3))
@@ -98,7 +109,6 @@ def main():
         content = fetch_and_format(sub, now_msk)
         print(f"Отправляю письмо для {sub['name']}...")
         send_email(sub, content, now_msk)
-        print(f"Успешно отправлено: {sub['name']}")
 
     with open("status.txt", "w", encoding="utf-8") as f:
         f.write(f"Last sync: {now_msk} MSK\n")
