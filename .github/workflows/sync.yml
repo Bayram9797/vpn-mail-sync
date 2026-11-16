@@ -1,0 +1,41 @@
+name: Send VPN Subscriptions to Gmail
+
+on:
+  workflow_dispatch: # Ручной запуск для мгновенной проверки
+  schedule:
+    # Запуск каждые 3 часа (в 00:15, 03:15, 06:15, 09:15, 12:15, 15:15, 18:15, 21:15 UTC)
+    - cron: '15 */3 * * *'
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Fetch and email subscriptions
+        env:
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_PASS: ${{ secrets.GMAIL_PASS }}
+        run: |
+          # При ручном запуске отправляет сразу все подписки, по расписанию — по одной в слот
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            python send_subs.py all
+          else
+            python send_subs.py queue
+          fi
+
+      - name: Keep repository active
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add status.txt
+          git diff --staged --quiet || (git commit -m "Update sync status" && git push)
