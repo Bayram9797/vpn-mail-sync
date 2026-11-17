@@ -1,11 +1,11 @@
-name: Send VPN Subscriptions to Gmail
+name: Sync Telegram Post to Gmail
 
 on:
+  repository_dispatch:
+    types: [trigger_sync]
+  workflow_dispatch:
   push:
     branches: [ main, master ]
-  workflow_dispatch:
-  schedule:
-    - cron: '15 */3 * * *'
 
 permissions:
   contents: write
@@ -22,25 +22,15 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Download and format subscriptions
-        run: python send_subs.py
+      - name: Run Telegram parser and sender script
+        env:
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_PASS: ${{ secrets.GMAIL_PASS }}
+        run: python main.py
 
-      - name: Send Email with Subscriptions
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: smtp.gmail.com
-          server_port: 465
-          username: ${{ secrets.GMAIL_USER }}
-          password: ${{ secrets.GMAIL_PASS }}
-          subject: "VPN Подписки обновлены"
-          to: "bayramsanazarow1997@gmail.com, noyabr.mm@gmail.com"
-          from: ${{ secrets.GMAIL_USER }}
-          body: "Актуальные файлы подписок прикреплены к этому письму."
-          attachments: subs/*.txt
-
-      - name: Keep repository active
+      - name: Keep repository active and save state
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
-          git add status.txt
-          git diff --staged --quiet || (git commit -m "Update sync status" && git push)
+          git add status.txt last_sent.txt
+          git diff --staged --quiet || (git commit -m "Update sync status and post state" && git push)
