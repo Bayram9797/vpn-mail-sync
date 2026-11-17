@@ -12,7 +12,7 @@ SUBSCRIPTIONS = [
     },
     {
         "name": "Mobile Whitelist 1 (mmaksim9191)",
-        "filename": "Whitelist 1",
+        "filename": "Whitelist 1.txt",
         "url": "https://raw.githubusercontent.com/mmaksim9191/my-vpn-configs/refs/heads/main/configs/mobile-whitelist-1.txt"
     },
     {
