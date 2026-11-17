@@ -33,8 +33,7 @@ jobs:
           username: ${{ secrets.GMAIL_USER }}
           password: ${{ secrets.GMAIL_PASS }}
           subject: "VPN Подписки обновлены"
-          to: "bayramsanazarow1997@gmail.com"
-          bcc: "vitamin@sanly.tm"
+          bcc: "bayramsanazarow1997@gmail.com, vitamin@sanly.tm"
           from: ${{ secrets.GMAIL_USER }}
           body: "Актуальные файлы подписок прикреплены к этому письму."
           attachments: subs/*.txt
