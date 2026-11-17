@@ -1,0 +1,46 @@
+name: Send VPN Subscriptions to Gmail
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+  schedule:
+    - cron: '15 */3 * * *'
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Download and format subscriptions
+        run: python send_subs.py
+
+      - name: Send Email with Subscriptions
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.GMAIL_USER }}
+          password: ${{ secrets.GMAIL_PASS }}
+          subject: "VPN Подписки обновлены"
+          to: "bayramsanazarow1997@gmail.com, noyabr.mm@gmail.com"
+          from: ${{ secrets.GMAIL_USER }}
+          body: "Актуальные файлы подписок прикреплены к этому письму."
+          attachments: subs/*.txt
+
+      - name: Keep repository active
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add status.txt
+          git diff --staged --quiet || (git commit -m "Update sync status" && git push)
